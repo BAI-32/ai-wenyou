@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<title>凡人修仙·文游</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <h1>凡人修仙·文游</h1>
+    <p class="subtitle">天南越国 · 文字冒险</p>
+  </header>
+
+  <main class="app-main">
+    <section class="world-card" data-world="frxz">
+      <div class="world-title">凡人修仙·天南越国</div>
+      <div class="world-desc">
+        天地不仁，以万物为刍狗。<br>
+        越国七派并立，弱肉强食。<br>
+        你是初入修仙路的小修士，长生或枯骨，全凭己手。
+      </div>
+      <button class="btn-primary btn-enter" data-world="frxz">进入世界</button>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button id="btn-model-manage">模型管理</button>
+    <button id="btn-settings">设置</button>
+  </nav>
+</div>
+
+<script src="/lib/api.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-world]').forEach(el => {
+      el.addEventListener('click', () => {
+        const world = el.dataset.world;
+        location.href = `/pages/saveList/saveList.html?game_id=${world}`;
+      });
+    });
+    document.getElementById('btn-model-manage').onclick = () => {
+      location.href = '/pages/modelManage/modelManage.html';
+    };
+    document.getElementById('btn-settings').onclick = () => {
+      location.href = '/pages/settings/settings.html';
+    };
+  });
+</script>
+</body>
+</html>
