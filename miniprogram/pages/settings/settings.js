@@ -1,35 +1,43 @@
-Page({
-  data: {
-    strictMode: false,
-    threadMode: true,
-  },
+// H5 version - settings.js
+(function(){
+  const data = { strictMode: false, threadMode: true };
 
-  onLoad() {
-    const strict = wx.getStorageSync('strictMode') || false;
-    const thread = wx.getStorageSync('threadMode') !== false;
-    this.setData({ strictMode: strict, threadMode: thread });
-  },
+  function $(s) { return document.querySelector(s); }
+  function setData(o) { Object.assign(data, o); render(); }
 
-  toggleStrictMode(e) {
-    this.setData({ strictMode: e.detail.value });
-    wx.setStorageSync('strictMode', e.detail.value);
-  },
+  function render() {
+    const s = $('#strict-mode');
+    if (s) s.checked = data.strictMode;
+    const t = $('#thread-mode');
+    if (t) t.checked = data.threadMode;
+  }
 
-  toggleThreadMode(e) {
-    this.setData({ threadMode: e.detail.value });
-    wx.setStorageSync('threadMode', e.detail.value);
-  },
+  function save() {
+    try {
+      localStorage.setItem('strictMode', JSON.stringify(data.strictMode));
+      localStorage.setItem('threadMode', JSON.stringify(data.threadMode));
+      alert('已保存');
+    } catch(e) { alert('保存失败：' + e.message); }
+  }
 
-  clearCache() {
-    wx.showModal({
-      title: '清空缓存',
-      content: '确定要清空本地缓存吗？存档数据不受影响。',
-      success: (res) => {
-        if (res.confirm) {
-          wx.clearStorageSync();
-          wx.showToast({ title: '缓存已清空' });
-        }
-      }
-    });
-  },
-});
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem('strictMode') || 'false');
+      const t = JSON.parse(localStorage.getItem('threadMode') !== null ? localStorage.getItem('threadMode') : 'true');
+      setData({ strictMode: s, threadMode: t });
+    } catch(e) {}
+  }
+
+  function clearCache() {
+    if (!confirm('清空本地缓存？存档数据不受影响。')) return;
+    try { localStorage.clear(); alert('已清空'); }
+    catch(e) { alert('失败：' + e.message); }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    load();
+    $('#strict-mode').onchange = e => { setData({ strictMode: e.target.checked }); save(); };
+    $('#thread-mode').onchange = e => { setData({ threadMode: e.target.checked }); save(); };
+    $('#btn-clear').onclick = clearCache;
+  });
+})();
