@@ -1,0 +1,50 @@
+<view class="container">
+  <view class="header">
+    <text class="title">{{mode === 'newPlayer' ? '创建主角' : '创建NPC'}}</text>
+  </view>
+
+  <view class="form">
+    <view class="form-item">
+      <text class="label">角色描述</text>
+      <textarea class="input-field desc-input" placeholder="{{mode === 'newPlayer' ? '例如：我叫韩立，四灵根，黄枫谷外门弟子，相貌平平' : '例如：剑修青年陆云，沉默寡言，背负玄铁剑'}}" value="{{description}}" bindinput="onInputDesc" auto-height />
+      <text class="hint">描述越详细，生成的角色越符合预期，留空则随机生成</text>
+    </view>
+
+    <button class="btn-primary generate-btn" bindtap="generate" loading="{{generating}}">
+      生成角色
+    </button>
+  </view>
+
+  <view class="card-preview" wx:if="{{card}}">
+    <view class="preview-header">
+      <text class="preview-title">角色预览</text>
+      <button class="btn-secondary edit-btn" size="mini" bindtap="editCard">编辑</button>
+    </view>
+
+    <view class="card-info" wx:if="{{!editing}}">
+      <view class="info-row"><text class="info-label">姓名：</text><text>{{card.name}}</text></view>
+      <view class="info-row" wx:if="{{card.spirit_root}}"><text class="info-label">灵根：</text><text>{{card.spirit_root}}</text></view>
+      <view class="info-row"><text class="info-label">境界：</text><text>{{card.realm}}</text></view>
+      <view class="info-row" wx:if="{{card.faction}}"><text class="info-label">门派：</text><text>{{card.faction}}</text></view>
+      <view class="info-desc">
+        <text class="info-label">外貌：</text>
+        <text>{{card.appearance}}</text>
+      </view>
+      <view class="info-desc">
+        <text class="info-label">性格：</text>
+        <text>{{card.personality}}</text>
+      </view>
+      <view class="info-desc">
+        <text class="info-label">背景：</text>
+        <text>{{card.background}}</text>
+      </view>
+    </view>
+
+    <textarea wx:if="{{editing}}" class="input-field edit-area" value="{{cardJson}}" bindinput="onEditCard" auto-height />
+
+    <view class="preview-actions">
+      <button class="btn-secondary" bindtap="regenerate" loading="{{generating}}">重新生成</button>
+      <button class="btn-primary" bindtap="confirmCard">确认创建</button>
+    </view>
+  </view>
+</view>

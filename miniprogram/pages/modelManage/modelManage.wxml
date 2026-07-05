@@ -1,0 +1,74 @@
+<view class="container">
+  <view class="header">
+    <text class="title">模型配置管理</text>
+    <button class="btn-primary add-btn" bindtap="showAddForm" size="mini">+ 添加配置</button>
+  </view>
+
+  <view class="config-list" wx:if="{{configs.length > 0}}">
+    <view class="config-card {{item.is_default ? 'default' : ''}}" wx:for="{{configs}}" wx:key="_id">
+      <view class="config-header">
+        <text class="config-name">{{item.name}}</text>
+        <text class="default-tag" wx:if="{{item.is_default}}">默认</text>
+      </view>
+      <view class="config-info">
+        <text>Base URL: {{item.base_url}}</text>
+        <text>模型: {{item.model}}</text>
+      </view>
+      <view class="config-actions">
+        <button size="mini" bindtap="testConfig" data-id="{{item._id}}" loading="{{testingId === item._id}}">测试</button>
+        <button size="mini" bindtap="setDefault" data-id="{{item._id}}" wx:if="{{!item.is_default}}">设为默认</button>
+        <button size="mini" bindtap="deleteConfig" data-id="{{item._id}}">删除</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:else>
+    <text class="empty-text">暂无模型配置，请添加配置</text>
+    <text class="hint">默认推荐 mimo 中转站：https://api.xiaomimimo.com/v1</text>
+  </view>
+
+  <!-- 添加/编辑表单弹窗 -->
+  <view class="modal" wx:if="{{showForm}}">
+    <view class="modal-content">
+      <view class="modal-header">
+        <text>{{editingId ? '编辑配置' : '添加配置'}}</text>
+        <text class="close-btn" bindtap="hideAddForm">×</text>
+      </view>
+
+      <view class="form-item">
+        <text class="label">配置名称</text>
+        <input class="input-field" placeholder="例如：mimo" value="{{form.name}}" bindinput="onFormInput" data-field="name" />
+      </view>
+
+      <view class="form-item">
+        <text class="label">Base URL</text>
+        <input class="input-field" placeholder="https://api.xiaomimimo.com/v1" value="{{form.base_url}}" bindinput="onFormInput" data-field="base_url" />
+      </view>
+
+      <view class="form-item">
+        <text class="label">API Key</text>
+        <input class="input-field" placeholder="输入你的API Key" password value="{{form.api_key}}" bindinput="onFormInput" data-field="api_key" />
+      </view>
+
+      <view class="form-item">
+        <text class="label">模型ID</text>
+        <input class="input-field" placeholder="mimo-v2.5-pro" value="{{form.model}}" bindinput="onFormInput" data-field="model" />
+      </view>
+
+      <view class="form-item">
+        <text class="label">Temperature: {{form.temperature}}</text>
+        <slider min="0" max="2" step="0.1" value="{{form.temperature}}" bindchange="onSliderChange" data-field="temperature" />
+      </view>
+
+      <view class="form-item">
+        <text class="label">Max Tokens: {{form.max_tokens}}</text>
+        <slider min="256" max="8192" step="256" value="{{form.max_tokens}}" bindchange="onSliderChange" data-field="max_tokens" />
+      </view>
+
+      <view class="form-actions">
+        <button class="btn-secondary" bindtap="hideAddForm">取消</button>
+        <button class="btn-primary" bindtap="saveConfig" loading="{{saving}}">保存</button>
+      </view>
+    </view>
+  </view>
+</view>

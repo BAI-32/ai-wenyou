@@ -1,0 +1,47 @@
+.container {
+  padding: 30rpx;
+}
+
+.header {
+  margin: 40rpx 0;
+}
+
+.title {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #e6d5a8;
+}
+
+.setting-group {
+  background: #161625;
+  border-radius: 12rpx;
+  padding: 20rpx 30rpx;
+  margin-bottom: 30rpx;
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #2a2a3e;
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+  font-size: 30rpx;
+  color: #ccc;
+}
+
+.about {
+  text-align: center;
+  margin-top: 100rpx;
+}
+
+.version {
+  color: #666;
+  font-size: 24rpx;
+}

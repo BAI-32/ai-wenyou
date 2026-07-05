@@ -1,0 +1,47 @@
+/* 全局样式 - 修仙主题暗色 */
+page {
+  background-color: #0a0a0a;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  line-height: 1.6;
+}
+
+/* 通用按钮样式 */
+.btn-primary {
+  background: linear-gradient(135deg, #2d5a27 0%, #4a7c43 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8rpx;
+  padding: 20rpx 40rpx;
+  font-size: 32rpx;
+}
+
+.btn-primary:active {
+  opacity: 0.8;
+}
+
+.btn-secondary {
+  background: #2a2a3e;
+  color: #ccc;
+  border: 1rpx solid #3a3a5e;
+  border-radius: 8rpx;
+  padding: 20rpx 40rpx;
+}
+
+/* 卡片样式 */
+.card {
+  background: #161625;
+  border-radius: 12rpx;
+  border: 1rpx solid #2a2a3e;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+/* 输入框 */
+.input-field {
+  background: #1a1a2e;
+  border: 1rpx solid #3a3a5e;
+  border-radius: 8rpx;
+  padding: 20rpx;
+  color: #e0e0e0;
+}

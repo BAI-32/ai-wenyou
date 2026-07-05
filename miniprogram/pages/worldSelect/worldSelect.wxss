@@ -1,0 +1,78 @@
+.container {
+  padding: 40rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.header {
+  text-align: center;
+  margin: 80rpx 0 100rpx;
+}
+
+.title {
+  display: block;
+  font-size: 56rpx;
+  font-weight: bold;
+  color: #e6d5a8;
+  margin-bottom: 20rpx;
+}
+
+.subtitle {
+  color: #888;
+  font-size: 28rpx;
+}
+
+.world-card {
+  background: linear-gradient(145deg, #1e2d1c, #162018);
+  border: 1rpx solid #3a5a32;
+  border-radius: 16rpx;
+  padding: 40rpx;
+  margin-bottom: 40rpx;
+}
+
+.world-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.world-name {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #c9b878;
+}
+
+.world-tag {
+  background: #3a5a32;
+  color: #9cd08f;
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+}
+
+.world-desc {
+  color: #aaa;
+  font-size: 28rpx;
+  line-height: 1.8;
+  margin-bottom: 32rpx;
+}
+
+.world-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #666;
+  font-size: 26rpx;
+}
+
+.enter-btn {
+  color: #9cd08f;
+  font-weight: bold;
+  font-size: 28rpx;
+}
+
+.footer {
+  margin-top: 120rpx;
+  text-align: center;
+}

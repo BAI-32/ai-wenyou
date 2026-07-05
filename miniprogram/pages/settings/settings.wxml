@@ -1,0 +1,24 @@
+<view class="container">
+  <view class="header">
+    <text class="title">设置</text>
+  </view>
+
+  <view class="setting-group">
+    <view class="setting-item">
+      <text class="setting-label">严格角色一致性校验</text>
+      <switch checked="{{strictMode}}" bindchange="toggleStrictMode" />
+    </view>
+    <view class="setting-item">
+      <text class="setting-label">线索追踪模式</text>
+      <switch checked="{{threadMode}}" bindchange="toggleThreadMode" />
+    </view>
+  </view>
+
+  <view class="setting-group">
+    <button class="btn-secondary" bindtap="clearCache">清空本地缓存</button>
+  </view>
+
+  <view class="about">
+    <text class="version">凡人修仙文游 v0.1.0 MVP</text>
+  </view>
+</view>

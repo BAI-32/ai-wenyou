@@ -1,0 +1,79 @@
+<view class="container">
+  <!-- 顶部状态栏 -->
+  <view class="top-bar">
+    <view class="player-info">
+      <text class="player-name">{{saveInfo.player_name}}</text>
+      <text class="player-realm">{{saveInfo.player_realm}}</text>
+    </view>
+    <view class="top-actions">
+      <button size="mini" bindtap="toggleStatePanel">状态</button>
+      <button size="mini" bindtap="toggleNPCList">人物</button>
+      <button size="mini" bindtap="goToModel">模型</button>
+    </view>
+  </view>
+
+  <!-- 状态面板（默认隐藏） -->
+  <view class="state-panel {{showState ? 'show' : ''}}">
+    <view class="panel-header">
+      <text>状态面板</text>
+      <text class="close-btn" bindtap="toggleStatePanel">×</text>
+    </view>
+    <scroll-view scroll-y class="panel-content">
+      <view class="state-section">
+        <text class="section-title">基本信息</text>
+        <view class="state-item">位置：{{saveInfo.current_region}}</view>
+        <view class="state-item">时间：{{saveInfo.current_date}}</view>
+      </view>
+      <view class="state-section" wx:if="{{stateText}}">
+        <text class="section-title">当前状态</text>
+        <text class="state-content">{{stateText}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- NPC列表面板（默认隐藏） -->
+  <view class="npc-panel {{showNPCList ? 'show' : ''}}">
+    <view class="panel-header">
+      <text>重要人物</text>
+      <text class="close-btn" bindtap="toggleNPCList">×</text>
+    </view>
+    <scroll-view scroll-y class="panel-content">
+      <view class="npc-item {{currentNpcId === null ? 'active' : ''}}" bindtap="selectNPC" data-npc-id="">
+        <text>自由探索</text>
+      </view>
+      <view class="npc-item {{currentNpcId === item.npc_id ? 'active' : ''}}" wx:for="{{npcList}}" wx:key="npc_id" bindtap="selectNPC" data-npc-id="{{item.npc_id}}">
+        <text>{{item.name}}</text>
+        <text class="npc-tag">{{item.realm}}</text>
+      </view>
+      <button class="btn-secondary create-npc-btn" bindtap="goCreateNPC">+ 创建新角色</button>
+    </scroll-view>
+  </view>
+
+  <!-- 对话消息区 -->
+  <scroll-view class="chat-area" scroll-y scroll-into-view="{{scrollToView}}" scroll-with-animation>
+    <view class="message {{item.role}}" wx:for="{{messages}}" wx:key="index" id="msg-{{index}}">
+      <view class="message-content">
+        <text>{{item.content}}</text>
+      </view>
+      <view class="message-footer" wx:if="{{item.role === 'assistant' && index === messages.length - 1 && item.rerollable}}">
+        <button size="mini" bindtap="reroll" loading="{{rerolling}}" class="reroll-btn">重摇</button>
+      </view>
+    </view>
+    <view class="loading" wx:if="{{sending}}">
+      <text>AI正在思考...</text>
+    </view>
+    <view class="compression-hint" wx:if="{{showCompressionHint}}">
+      <text>上下文较长，建议压缩以节省token</text>
+      <button size="mini" bindtap="compress">压缩上下文</button>
+    </view>
+  </scroll-view>
+
+  <!-- 输入区 -->
+  <view class="input-area">
+    <textarea class="chat-input" placeholder="输入你的行动或对话..." value="{{inputText}}" bindinput="onInput" auto-height adjust-position="{{true}}" maxlength="2000" />
+    <view class="input-actions">
+      <button class="btn-secondary action-btn" bindtap="createNPCCommand" size="mini">创建角色</button>
+      <button class="btn-primary send-btn" bindtap="send" loading="{{sending}}" disabled="{{!inputText.trim()}}">发送</button>
+    </view>
+  </view>
+</view>

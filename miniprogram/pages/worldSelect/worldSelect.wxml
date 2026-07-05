@@ -1,0 +1,26 @@
+<view class="container">
+  <view class="header">
+    <text class="title">凡人修仙·文游</text>
+    <text class="subtitle">一念成仙，一念成土</text>
+  </view>
+
+  <view class="world-list">
+    <view class="world-card" bindtap="selectWorld" data-game-id="frxz">
+      <view class="world-card-header">
+        <text class="world-name">凡人修仙·天南越国</text>
+        <text class="world-tag">正式世界</text>
+      </view>
+      <view class="world-desc">
+        越国七派并立，你是一名初入修仙路的小修士，未来如何，全凭你一手书写。
+      </view>
+      <view class="world-footer">
+        <text>推荐：炼气开局</text>
+        <text class="enter-btn">进入 →</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="footer">
+    <button class="btn-secondary" bindtap="goToModelManage">模型管理</button>
+  </view>
+</view>

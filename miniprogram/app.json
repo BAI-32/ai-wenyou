@@ -1,0 +1,19 @@
+{
+  "pages": [
+    "pages/worldSelect/worldSelect",
+    "pages/saveList/saveList",
+    "pages/charCreation/charCreation",
+    "pages/dialog/dialog",
+    "pages/modelManage/modelManage",
+    "pages/settings/settings"
+  ],
+  "window": {
+    "navigationBarTitleText": "凡人修仙·文游",
+    "navigationBarBackgroundColor": "#1a1a2e",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0a0a0a",
+    "backgroundTextStyle": "dark"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

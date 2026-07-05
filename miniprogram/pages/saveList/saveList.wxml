@@ -1,0 +1,26 @@
+<view class="container">
+  <view class="header">
+    <text class="title">选择存档</text>
+    <button class="btn-primary new-game-btn" bindtap="newGame">+ 新游戏</button>
+  </view>
+
+  <view class="save-list" wx:if="{{saves.length > 0}}">
+    <view class="save-card" wx:for="{{saves}}" wx:key="save_id" bindtap="continueGame" data-save-id="{{item.save_id}}" bindlongpress="confirmDelete" data-save-id="{{item.save_id}}">
+      <view class="save-header">
+        <text class="player-name">{{item.player_name}}</text>
+        <text class="player-realm">{{item.player_realm}}</text>
+      </view>
+      <view class="save-info">
+        <text>位置：{{item.current_region}}</text>
+        <text>时间：{{item.current_date}}</text>
+      </view>
+      <view class="save-footer">
+        <text class="last-played">上次游玩：{{item.last_played_str}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:else>
+    <text class="empty-text">暂无存档，点击上方按钮开始新游戏</text>
+  </view>
+</view>

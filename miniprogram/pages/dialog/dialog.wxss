@@ -1,0 +1,254 @@
+page {
+  height: 100vh;
+  background: #0a0a0a;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+/* 顶部栏 */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 30rpx;
+  background: #161625;
+  border-bottom: 1rpx solid #2a2a3e;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.player-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #c9b878;
+}
+
+.player-realm {
+  background: #2d4a27;
+  color: #9cd08f;
+  font-size: 22rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 16rpx;
+}
+
+.top-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.top-actions button {
+  font-size: 24rpx;
+  padding: 6rpx 16rpx;
+}
+
+/* 侧边面板 */
+.state-panel, .npc-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 70%;
+  height: 100vh;
+  background: #161625;
+  border-right: 1rpx solid #2a2a3e;
+  z-index: 100;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.state-panel.show, .npc-panel.show {
+  transform: translateX(0);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #2a2a3e;
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #e6d5a8;
+}
+
+.close-btn {
+  font-size: 48rpx;
+  color: #999;
+}
+
+.panel-content {
+  flex: 1;
+  padding: 30rpx;
+}
+
+.state-section {
+  margin-bottom: 40rpx;
+}
+
+.section-title {
+  display: block;
+  font-size: 28rpx;
+  color: #9cd08f;
+  margin-bottom: 16rpx;
+  font-weight: bold;
+}
+
+.state-item {
+  color: #ccc;
+  font-size: 26rpx;
+  margin-bottom: 12rpx;
+}
+
+.state-content {
+  color: #aaa;
+  font-size: 26rpx;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.npc-item {
+  padding: 24rpx;
+  border-bottom: 1rpx solid #2a2a3e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 28rpx;
+  color: #ccc;
+}
+
+.npc-item.active {
+  background: #1e2d1c;
+  color: #9cd08f;
+}
+
+.npc-tag {
+  font-size: 22rpx;
+  color: #888;
+  background: #2a2a3e;
+  padding: 2rpx 12rpx;
+  border-radius: 12rpx;
+}
+
+.create-npc-btn {
+  margin-top: 30rpx;
+  width: 100%;
+}
+
+/* 对话区 */
+.chat-area {
+  flex: 1;
+  padding: 20rpx 30rpx;
+  overflow-y: auto;
+}
+
+.message {
+  margin-bottom: 30rpx;
+  display: flex;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+.message-content {
+  max-width: 80%;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.message.user .message-content {
+  background: #2d4a27;
+  color: #e0e0e0;
+}
+
+.message.assistant .message-content {
+  background: #1e2d1c;
+  color: #d0d0c0;
+  border: 1rpx solid #3a5a32;
+}
+
+.message-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8rpx;
+}
+
+.reroll-btn {
+  font-size: 22rpx;
+  padding: 2rpx 16rpx;
+  color: #888;
+}
+
+.loading {
+  text-align: center;
+  color: #666;
+  font-size: 26rpx;
+  padding: 20rpx;
+}
+
+.compression-hint {
+  background: #2d2a1e;
+  border: 1rpx solid #5a5232;
+  border-radius: 8rpx;
+  padding: 16rpx 20rpx;
+  margin: 20rpx 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 24rpx;
+  color: #c9b878;
+}
+
+/* 输入区 */
+.input-area {
+  padding: 20rpx 30rpx;
+  background: #161625;
+  border-top: 1rpx solid #2a2a3e;
+}
+
+.chat-input {
+  width: 100%;
+  min-height: 80rpx;
+  max-height: 300rpx;
+  background: #1a1a2e;
+  border: 1rpx solid #3a3a5e;
+  border-radius: 8rpx;
+  padding: 20rpx;
+  color: #e0e0e0;
+  font-size: 28rpx;
+  box-sizing: border-box;
+  margin-bottom: 20rpx;
+}
+
+.input-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.action-btn {
+  font-size: 24rpx;
+}
+
+.send-btn {
+  flex: 1;
+  max-width: 200rpx;
+}
