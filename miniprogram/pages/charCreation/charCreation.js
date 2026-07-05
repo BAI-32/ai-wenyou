@@ -1,137 +1,130 @@
-Page({
-  data: {
-    game_id: 'frxz',
-    mode: 'newPlayer', // newPlayer | newNPC
-    save_id: null,
-    description: '',
+// H5 version - charCreation.js
+(function(){
+  const params = new URLSearchParams(location.search);
+  const game_id = params.get('game_id') || 'frxz';
+  const mode = params.get('mode') || 'newPlayer';
+  const initialSaveId = params.get('save_id') || null;
+  const initialDesc = params.get('description') || '';
+
+  const data = {
+    game_id, mode,
+    save_id: initialSaveId,
+    description: decodeURIComponent(initialDesc),
     generating: false,
     card: null,
     cardJson: '',
     editing: false,
-  },
+  };
 
-  onLoad(options) {
-    this.setData({
-      game_id: options.game_id || 'frxz',
-      mode: options.mode || 'newPlayer',
-      save_id: options.save_id || null,
-    });
+  function $(sel) { return document.querySelector(sel); }
+  function setData(obj) { Object.assign(data, obj); render(); }
 
-    // 如果是创建NPC，需要save_id
-    if (this.data.mode === 'newNPC' && !this.data.save_id) {
-      wx.showToast({ title: '参数错误', icon: 'error' });
-      wx.navigateBack();
+  function render() {
+    const genBtn = $('#btn-generate');
+    if (genBtn) {
+      genBtn.disabled = data.generating;
+      genBtn.textContent = data.generating ? '...生成中' : '生成角色';
     }
 
-    // 如果是新玩家，先创建存档
-    if (this.data.mode === 'newPlayer' && !this.data.save_id) {
-      this.createSaveFirst();
-    }
-  },
+    const descInput = $('#description');
+    if (descInput && document.activeElement !== descInput) descInput.value = data.description;
 
-  async createSaveFirst() {
-    wx.showLoading({ title: '初始化存档...' });
+    const cardEl = $('#card-display');
+    if (cardEl) {
+      if (data.card) {
+        cardEl.innerHTML = '<pre>' + escapeHtml(JSON.stringify(data.card, null, 2)) + '</pre>';
+      } else {
+        cardEl.innerHTML = '<p class="hint">还没有角色卡，填入描述后点生成</p>';
+      }
+    }
+
+    const cardJsonEl = $('#card-json');
+    if (cardJsonEl && data.editing) cardJsonEl.value = data.cardJson;
+
+    const editBtn = $('#btn-edit');
+    if (editBtn) editBtn.textContent = data.editing ? '取消编辑' : '编辑 JSON';
+
+    const editArea = $('#edit-area');
+    if (editArea) editArea.style.display = data.editing ? 'block' : 'none';
+
+    const confirmBtn = $('#btn-confirm');
+    if (confirmBtn && data.card) confirmBtn.style.display = 'inline-block';
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // 新玩家模式：先创建存档
+  async function ensureSave() {
+    if (data.save_id) return true;
+    const res = await API.saveCreate(data.game_id);
+    if (res.save_id) { setData({ save_id: res.save_id }); return true; }
+    alert('创建存档失败：' + (res.error || '未知'));
+    return false;
+  }
+
+  async function generate() {
+    if (data.mode === 'newPlayer') {
+      const ok = await ensureSave();
+      if (!ok) return;
+    }
+    if (data.mode === 'newNPC' && !data.save_id) {
+      alert('参数错误：缺少 save_id');
+      return;
+    }
+
+    setData({ generating: true });
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'manageSave',
-        data: {
-          action: 'create',
-          game_id: this.data.game_id,
-        },
+      const action = data.mode === 'newPlayer' ? 'createPlayer' : 'createNPC';
+      const res = await API.createCharacter({
+        action, save_id: data.save_id, game_id: data.game_id, description: data.description
       });
-      wx.hideLoading();
-      if (res.result && res.result.save_id) {
-        this.setData({ save_id: res.result.save_id });
+      setData({ generating: false });
+
+      if (res.success) {
+        setData({ card: res.card, cardJson: JSON.stringify(res.card, null, 2) });
       } else {
-        wx.showToast({ title: '创建存档失败', icon: 'error' });
-        wx.navigateBack();
+        alert(res.error || '生成失败');
       }
     } catch (e) {
-      wx.hideLoading();
-      wx.showToast({ title: '创建存档失败', icon: 'error' });
-      wx.navigateBack();
+      setData({ generating: false });
+      alert('生成失败：' + e.message);
     }
-  },
+  }
 
-  onInputDesc(e) {
-    this.setData({ description: e.detail.value });
-  },
+  function regenerate() { generate(); }
+  function toggleEdit() { setData({ editing: !data.editing }); }
 
-  async generate() {
-    if (this.data.generating) return;
-    this.setData({ generating: true });
+  function onEditCard(e) { setData({ cardJson: e.target.value }); }
 
-    try {
-      const action = this.data.mode === 'newPlayer' ? 'createPlayer' : 'createNPC';
-      const res = await wx.cloud.callFunction({
-        name: 'createCharacter',
-        data: {
-          action,
-          save_id: this.data.save_id,
-          game_id: this.data.game_id,
-          description: this.data.description,
-        },
-      });
-
-      this.setData({ generating: false });
-      if (res.result && res.result.success) {
-        this.setData({
-          card: res.result.card,
-          cardJson: JSON.stringify(res.result.card, null, 2),
-          editing: false,
-        });
-      } else {
-        wx.showToast({ title: res.result?.error || '生成失败', icon: 'none' });
-      }
-    } catch (e) {
-      this.setData({ generating: false });
-      wx.showToast({ title: '生成失败', icon: 'error' });
-      console.error(e);
-    }
-  },
-
-  regenerate() {
-    this.generate();
-  },
-
-  editCard() {
-    this.setData({ editing: !this.data.editing });
-  },
-
-  onEditCard(e) {
-    this.setData({ cardJson: e.detail.value });
-  },
-
-  async confirmCard() {
-    let card = this.data.card;
-    if (this.data.editing) {
-      try {
-        card = JSON.parse(this.data.cardJson);
-      } catch (e) {
-        wx.showToast({ title: 'JSON格式错误', icon: 'error' });
-        return;
-      }
+  async function confirmCard() {
+    let card = data.card;
+    if (data.editing) {
+      try { card = JSON.parse(data.cardJson); }
+      catch (e) { alert('JSON 格式错误'); return; }
     }
 
-    wx.showLoading({ title: '创建中...' });
-    try {
-      if (this.data.mode === 'newPlayer') {
-        // 主角已经在创建时写入了，直接进入对话页
-        wx.hideLoading();
-        wx.redirectTo({
-          url: `/pages/dialog/dialog?save_id=${this.data.save_id}&game_id=${this.data.game_id}`,
-        });
-      } else {
-        // NPC创建成功，返回对话页
-        wx.hideLoading();
-        wx.showToast({ title: '创建成功' });
-        setTimeout(() => {
-          wx.navigateBack();
-        }, 1000);
-      }
-    } catch (e) {
-      wx.hideLoading();
-      wx.showToast({ title: '创建失败', icon: 'error' });
+    if (data.mode === 'newPlayer') {
+      alert('主角创建成功！进入对话...');
+      location.href = `/pages/dialog/dialog?save_id=${data.save_id}&game_id=${data.game_id}`;
+    } else {
+      alert('NPC 创建成功！');
+      history.back();
     }
-  },
-});
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const genBtn = $('#btn-generate');
+    if (genBtn) genBtn.onclick = generate;
+    const regenBtn = $('#btn-regenerate');
+    if (regenBtn) regenBtn.onclick = regenerate;
+    const editBtn = $('#btn-edit');
+    if (editBtn) editBtn.onclick = toggleEdit;
+    const confirmBtn = $('#btn-confirm');
+    if (confirmBtn) confirmBtn.onclick = confirmCard;
+    const descEl = $('#description');
+    if (descEl) descEl.oninput = e => setData({ description: e.target.value });
+    const cardJsonEl = $('#card-json');
+    if (cardJsonEl) cardJsonEl.oninput = onEditCard;
+    render();
+  });
+})();
