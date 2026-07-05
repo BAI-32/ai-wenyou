@@ -1,16 +1,12 @@
-Page({
-  data: {},
-
-  selectWorld(e) {
-    const gameId = e.currentTarget.dataset.gameId;
-    wx.navigateTo({
-      url: `/pages/saveList/saveList?game_id=${gameId}`,
+// H5 version - worldSelect.js
+(function(){
+  document.addEventListener('DOContentLoaded', () => {
+    document.querySelectorAll('[data-world]').forEach(el => {
+      el.onclick = () => location.href = `/pages/saveList/saveList?game_id=${el.dataset.world}`;
     });
-  },
-
-  goToModelManage() {
-    wx.navigateTo({
-      url: '/pages/modelManage/modelManage',
-    });
-  },
-});
+    const m = $('#btn-model-manage');
+    if (m) m.onclick = () => location.href = '/pages/modelManage/modelManage';
+    const s = $('#btn-settings');
+    if (s) s.onclick = () => location.href = '/pages/settings/settings';
+  });
+})();
