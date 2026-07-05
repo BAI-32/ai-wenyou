@@ -1,85 +1,76 @@
-Page({
-  data: {
-    game_id: 'frxz',
-    saves: [],
-  },
+// H5 version - saveList.js
+(function(){
+  const params = new URLSearchParams(location.search);
+  const game_id = params.get('game_id') || 'frxz';
 
-  onLoad(options) {
-    if (options.game_id) {
-      this.setData({ game_id: options.game_id });
-    }
-    this.loadSaves();
-  },
+  const data = { game_id, saves: [] };
 
-  onShow() {
-    this.loadSaves();
-  },
+  function $(sel) { return document.querySelector(sel); }
+  function setData(obj) { Object.assign(data, obj); render(); }
 
-  async loadSaves() {
-    wx.showLoading({ title: '加载中...' });
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'manageSave',
-        data: {
-          action: 'list',
-          game_id: this.data.game_id,
-        },
+  function render() {
+    const list = $('#save-list');
+    if (!list) return;
+    if (!data.saves.length) {
+      list.innerHTML = '<p class="empty">还没有存档，点下方创建</p>';
+    } else {
+      list.innerHTML = data.saves.map(s => `
+        <div class="save-card" data-id="${s.save_id}">
+          <div class="save-name">${escapeHtml(s.player_name)}</div>
+          <div class="save-info">${escapeHtml(s.player_realm)} · ${escapeHtml(s.current_region)}</div>
+          <div class="save-time">最后游玩：${s.last_played_str || '刚刚'}</div>
+          <button class="btn-danger btn-delete" data-id="${s.save_id}">删除</button>
+        </div>
+      `).join('');
+      list.querySelectorAll('.save-card').forEach(el => {
+        el.onclick = (e) => {
+          if (e.target.classList.contains('btn-delete')) return;
+          location.href = `/pages/dialog/dialog?save_id=${el.dataset.id}&game_id=${data.game_id}`;
+        };
       });
-      wx.hideLoading();
-      if (res.result && res.result.saves) {
-        // 格式化时间
-        const saves = res.result.saves.map(s => ({
-          ...s,
-          last_played_str: s.last_played ? new Date(s.last_played).toLocaleString('zh-CN') : '刚刚',
-        }));
-        this.setData({ saves });
-      }
-    } catch (e) {
-      wx.hideLoading();
-      wx.showToast({ title: '加载失败', icon: 'error' });
-      console.error(e);
+      list.querySelectorAll('.btn-delete').forEach(el => {
+        el.onclick = (e) => { e.stopPropagation(); confirmDelete(el.dataset.id); };
+      });
     }
-  },
+  }
 
-  newGame() {
-    wx.navigateTo({
-      url: `/pages/charCreation/charCreation?game_id=${this.data.game_id}&mode=newPlayer`,
-    });
-  },
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  continueGame(e) {
-    const saveId = e.currentTarget.dataset.saveId;
-    wx.navigateTo({
-      url: `/pages/dialog/dialog?save_id=${saveId}&game_id=${this.data.game_id}`,
-    });
-  },
+  async function loadSaves() {
+    try {
+      const res = await API.saveList(data.game_id);
+      const saves = (res.saves || []).map(s => ({
+        ...s,
+        last_played_str: s.last_played ? new Date(s.last_played).toLocaleString('zh-CN') : '刚刚',
+      }));
+      setData({ saves });
+    } catch (e) { alert('加载失败：' + e.message); }
+  }
 
-  confirmDelete(e) {
-    const saveId = e.currentTarget.dataset.saveId;
-    wx.showModal({
-      title: '删除存档',
-      content: '确定要删除这个存档吗？删除后无法恢复。',
-      success: async (res) => {
-        if (res.confirm) {
-          wx.showLoading({ title: '删除中...' });
-          try {
-            await wx.cloud.callFunction({
-              name: 'manageSave',
-              data: {
-                action: 'delete',
-                save_id: saveId,
-                game_id: this.data.game_id,
-              },
-            });
-            wx.hideLoading();
-            wx.showToast({ title: '删除成功' });
-            this.loadSaves();
-          } catch (e) {
-            wx.hideLoading();
-            wx.showToast({ title: '删除失败', icon: 'error' });
-          }
-        }
-      },
-    });
-  },
-});
+  function newGame() {
+    location.href = `/pages/charCreation/charCreation?game_id=${data.game_id}&mode=newPlayer`;
+  }
+
+  function confirmDelete(saveId) {
+    if (!confirm('确定删除？此操作不可恢复。')) return;
+    deleteSave(saveId);
+  }
+
+  async function deleteSave(saveId) {
+    try {
+      const res = await API.saveDelete(saveId, data.game_id);
+      if (res.success) {
+        alert('删除成功');
+        loadSaves();
+      } else {
+        alert(res.error || '删除失败');
+      }
+    } catch(e) { alert('删除失败：' + e.message); }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const newBtn = $('#btn-new');
+    if (newBtn) newBtn.onclick = newGame;
+    loadSaves();
+  });
+})();
