@@ -1,7 +1,18 @@
-Page({
-  data: {
-    game_id: 'frxz',
-    save_id: null,
+// H5 version - replaces wx.cloud.callFunction with API.*
+(function(){
+  const params = new URLSearchParams(location.search);
+  const game_id = params.get('game_id') || 'frxz';
+  const save_id = params.get('save_id');
+
+  if (!save_id) {
+    alert('参数错误：缺少 save_id');
+    location.href = '/';
+    return;
+  }
+
+  const data = {
+    game_id: game_id,
+    save_id: save_id,
     saveInfo: {},
     currentNpcId: null,
     messages: [],
@@ -14,267 +25,238 @@ Page({
     npcList: [],
     stateText: '',
     showCompressionHint: false,
-    scrollToView: '',
-  },
+  };
 
-  onLoad(options) {
-    if (!options.save_id) {
-      wx.showToast({ title: '参数错误', icon: 'error' });
-      wx.navigateBack();
-      return;
+  function $(sel) { return document.querySelector(sel); }
+  function $all(sel) { return Array.from(document.querySelectorAll(sel)); }
+
+  function setData(obj) {
+    Object.assign(data, obj);
+    render();
+  }
+
+  function render() {
+    if (data.saving === false) {/*noop*/}
+
+    const msgsEl = $('#messages');
+    if (msgsEl) {
+      msgsEl.innerHTML = data.messages.map((m, i) => {
+        const who = m.role === 'user' ? 'msg-user' : 'msg-ai';
+        return `<div class="msg ${who}" id="msg-${i}">${escapeHtml(m.content)}</div>`;
+      }).join('');
+      msgsEl.scrollTop = msgsEl.scrollHeight;
     }
-    this.setData({
-      save_id: options.save_id,
-      game_id: options.game_id || 'frxz',
-    });
-    this.loadSaveInfo();
-    this.loadNPCList();
-    this.loadHistory();
-  },
 
-  async loadSaveInfo() {
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'manageSave',
-        data: {
-          action: 'get',
-          save_id: this.data.save_id,
-          game_id: this.data.game_id,
-        },
+    const input = $('#input');
+    if (input) input.value = data.inputText;
+
+    const sendBtn = $('#btn-send');
+    if (sendBtn) {
+      sendBtn.disabled = data.sending;
+      sendBtn.textContent = data.sending ? '...发送中' : '发送';
+    }
+
+    const title = $('#save-title');
+    if (title && data.saveInfo.player_name) {
+      title.textContent = data.saveInfo.player_name + (data.saveInfo.player_realm ? ' · ' + data.saveInfo.player_realm : '');
+    }
+
+    const statePanel = $('#state-panel');
+    if (statePanel) statePanel.style.display = data.showState ? 'block' : 'none';
+
+    const npcPanel = $('#npc-panel');
+    if (npcPanel) npcPanel.style.display = data.showNPCList ? 'block' : 'none';
+
+    const npcList = $('#npc-list');
+    if (npcList) {
+      npcList.innerHTML = '<div class="npc-item" data-id="">自由探索</div>' +
+        data.npcList.map(n => `<div class="npc-item" data-id="${n.npc_id}">${escapeHtml(n.name)}</div>`).join('');
+      $all('.npc-item').forEach(el => {
+        el.onclick = () => selectNPC(el.dataset.id || null);
       });
-      if (res.result && res.result.save) {
-        this.setData({ saveInfo: res.result.save });
-        if (res.result.files && res.result.files.state) {
-          this.setData({ stateText: res.result.files.state });
-        }
-      }
-    } catch (e) {
-      console.error(e);
     }
-  },
 
-  async loadNPCList() {
-    try {
-      const db = wx.cloud.database();
-      const res = await db.collection('characters')
-        .where({ save_id: this.data.save_id, type: 'npc' })
-        .get();
-      this.setData({ npcList: res.data });
-    } catch (e) {
-      console.error(e);
+    if (data.stateText) {
+      const t = $('#state-text');
+      if (t) t.textContent = data.stateText.substring(0, 500);
     }
-  },
 
-  async loadHistory() {
-    try {
-      const db = wx.cloud.database();
-      const res = await db.collection('conversations')
-        .where({
-          save_id: this.data.save_id,
-          is_final: true,
-        })
-        .orderBy('timestamp', 'asc')
-        .limit(50)
-        .get();
+    const compHint = $('#compression-hint');
+    if (compHint) compHint.style.display = data.showCompressionHint ? 'block' : 'none';
+  }
 
-      const messages = res.data.map(m => ({
-        role: m.role,
-        content: m.content,
-        turn_id: m.turn_id,
-        rerollable: false,
-      }));
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
 
-      // 最后一条AI消息允许reroll（简化版，只有最新一轮可reroll）
-      if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
-        messages[messages.length - 1].rerollable = true;
-        this.setData({ currentTurnId: messages[messages.length - 1].turn_id });
-      }
-
-      this.setData({ messages });
-      this.scrollToBottom();
-    } catch (e) {
-      console.error(e);
+  // ===== Loaders =====
+  async function loadSaveInfo() {
+    const res = await API.saveGet(data.save_id, data.game_id);
+    if (res.save) {
+      setData({ saveInfo: res.save });
+      if (res.files && res.files.state) setData({ stateText: res.files.state });
     }
-  },
+  }
 
-  toggleStatePanel() {
-    this.setData({ showState: !this.data.showState, showNPCList: false });
-  },
+  async function loadNPCList() {
+    const res = await API.charList(data.save_id, 'npc');
+    setData({ npcList: res.data || [] });
+  }
 
-  toggleNPCList() {
-    this.setData({ showNPCList: !this.data.showNPCList, showState: false });
-  },
-
-  selectNPC(e) {
-    const npcId = e.currentTarget.dataset.npcId || null;
-    this.setData({ currentNpcId: npcId, showNPCList: false });
-    wx.showToast({ title: npcId ? '已切换对话对象' : '进入自由探索模式', icon: 'none' });
-  },
-
-  goCreateNPC() {
-    this.setData({ showNPCList: false });
-    wx.navigateTo({
-      url: `/pages/charCreation/charCreation?game_id=${this.data.game_id}&save_id=${this.data.save_id}&mode=newNPC`,
-    });
-  },
-
-  createNPCCommand() {
-    const text = this.data.inputText.trim();
-    if (text.startsWith('创建角色')) {
-      this.send();
-      return;
+  async function loadHistory() {
+    const res = await API.history(data.save_id);
+    const messages = (res.data || []).map(m => ({
+      role: m.role,
+      content: m.content,
+      turn_id: m.turn_id,
+      rerollable: false,
+    }));
+    if (messages.length && messages[messages.length - 1].role === 'assistant') {
+      messages[messages.length - 1].rerollable = true;
+      setData({ currentTurnId: messages[messages.length - 1].turn_id });
     }
-    this.setData({ inputText: '创建角色：' });
-  },
+    setData({ messages });
+  }
 
-  goToModel() {
-    wx.navigateTo({ url: '/pages/modelManage/modelManage' });
-  },
+  // ===== UI actions =====
+  function toggleState() { setData({ showState: !data.showState, showNPCList: false }); }
+  function toggleNPCList() { setData({ showNPCList: !data.showNPCList, showState: false }); }
 
-  onInput(e) {
-    this.setData({ inputText: e.detail.value });
-  },
+  function selectNPC(npcId) {
+    setData({ currentNpcId: npcId, showNPCList: false });
+    alert(npcId ? '已切换对话对象：' + npcId : '进入自由探索模式');
+  }
 
-  scrollToBottom() {
-    const length = this.data.messages.length;
-    if (length > 0) {
-      this.setData({ scrollToView: `msg-${length - 1}` });
-    }
-  },
+  function goCreateNPC() {
+    location.href = `/pages/charCreation/charCreation?game_id=${data.game_id}&save_id=${data.save_id}&mode=newNPC`;
+  }
 
-  async send() {
-    const text = this.data.inputText.trim();
-    if (!text || this.data.sending) return;
+  function goToModel() {
+    location.href = '/pages/modelManage/modelManage';
+  }
 
-    // 先处理"创建角色"命令
+  function onInput(e) { setData({ inputText: e.target.value }); }
+
+  // ===== Send =====
+  async function send() {
+    const text = data.inputText.trim();
+    if (!text || data.sending) return;
+
     if (text.startsWith('创建角色')) {
       const desc = text.replace(/^创建角色[:：]?\s*/, '');
-      this.setData({ inputText: '' });
-      wx.navigateTo({
-        url: `/pages/charCreation/charCreation?game_id=${this.data.game_id}&save_id=${this.data.save_id}&mode=newNPC&description=${encodeURIComponent(desc)}`,
-      });
+      location.href = `/pages/charCreation/charCreation?game_id=${data.game_id}&save_id=${data.save_id}&mode=newNPC&description=${encodeURIComponent(desc)}`;
       return;
     }
 
-    this.setData({ sending: true });
+    setData({ sending: true, inputText: '' });
     const userMsg = { role: 'user', content: text };
-    const messages = [...this.data.messages, userMsg];
-    this.setData({ messages, inputText: '' });
-    this.scrollToBottom();
+    setData({ messages: [...data.messages, userMsg] });
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'chat',
-        data: {
-          game_id: this.data.game_id,
-          save_id: this.data.save_id,
-          npc_id: this.data.currentNpcId,
-          user_input: text,
-          reroll: false,
-        },
+      const res = await API.chat({
+        game_id: data.game_id,
+        save_id: data.save_id,
+        npc_id: data.currentNpcId,
+        user_input: text,
+        reroll: false,
       });
 
-      this.setData({ sending: false });
+      setData({ sending: false });
 
-      if (res.result && res.result.error) {
-        wx.showToast({ title: res.result.error, icon: 'none' });
-        // 移除失败的用户消息
-        this.setData({ messages: this.data.messages.slice(0, -1) });
+      if (res.error) {
+        alert(res.error);
+        setData({ messages: data.messages.slice(0, -1) });
         return;
       }
 
-      if (res.result && res.result.success) {
+      if (res.success) {
         const aiMsg = {
           role: 'assistant',
-          content: res.result.reply,
-          turn_id: res.result.turn_id,
+          content: res.reply,
+          turn_id: res.turn_id,
           rerollable: true,
         };
-        const newMessages = [...this.data.messages, aiMsg];
-        // 之前的消息不可reroll
-        if (newMessages.length > 2) {
-          newMessages[newMessages.length - 2].rerollable = false;
-        }
-        this.setData({
+        const newMessages = [...data.messages, aiMsg];
+        if (newMessages.length > 2) newMessages[newMessages.length - 2].rerollable = false;
+        setData({
           messages: newMessages,
-          currentTurnId: res.result.turn_id,
-          showCompressionHint: res.result.shouldSuggestCompression || false,
+          currentTurnId: res.turn_id,
+          showCompressionHint: !!res.shouldSuggestCompression,
         });
-        this.scrollToBottom();
-        // 刷新存档信息
-        this.loadSaveInfo();
+        loadSaveInfo();
       }
     } catch (e) {
-      this.setData({ sending: false });
-      wx.showToast({ title: '发送失败', icon: 'error' });
-      // 移除失败的用户消息
-      this.setData({ messages: this.data.messages.slice(0, -1) });
-      console.error(e);
+      setData({ sending: false });
+      alert('发送失败：' + e.message);
+      setData({ messages: data.messages.slice(0, -1) });
     }
-  },
+  }
 
-  async reroll() {
-    if (this.data.rerolling || !this.data.currentTurnId) return;
-
-    // 获取最后一条用户消息
-    const messages = [...this.data.messages];
-    const lastUserMsgIndex = messages.map(m => m.role).lastIndexOf('user');
-    if (lastUserMsgIndex === -1) return;
-    const userInput = messages[lastUserMsgIndex].content;
-
-    this.setData({ rerolling: true });
+  async function reroll() {
+    if (data.rerolling || !data.currentTurnId) return;
+    const idx = data.messages.map(m => m.role).lastIndexOf('user');
+    if (idx === -1) return;
+    const userInput = data.messages[idx].content;
+    setData({ rerolling: true });
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'chat',
-        data: {
-          game_id: this.data.game_id,
-          save_id: this.data.save_id,
-          npc_id: this.data.currentNpcId,
-          user_input: userInput,
-          reroll: true,
-          turn_id: this.data.currentTurnId,
-        },
+      const res = await API.chat({
+        game_id: data.game_id,
+        save_id: data.save_id,
+        npc_id: data.currentNpcId,
+        user_input: userInput,
+        reroll: true,
+        turn_id: data.currentTurnId,
       });
 
-      this.setData({ rerolling: false });
-
-      if (res.result && res.result.success) {
-        // 替换最后一条AI消息
-        const newMessages = [...this.data.messages];
-        newMessages[newMessages.length - 1] = {
-          role: 'assistant',
-          content: res.result.reply,
-          turn_id: res.result.turn_id,
-          rerollable: true,
-        };
-        this.setData({ messages: newMessages });
-        this.scrollToBottom();
+      setData({ rerolling: false });
+      if (res.success) {
+        const m = [...data.messages];
+        m[m.length - 1] = { role: 'assistant', content: res.reply, turn_id: res.turn_id, rerollable: true };
+        setData({ messages: m, currentTurnId: res.turn_id });
       } else {
-        wx.showToast({ title: '重摇失败', icon: 'none' });
+        alert('重摇失败');
       }
     } catch (e) {
-      this.setData({ rerolling: false });
-      wx.showToast({ title: '重摇失败', icon: 'error' });
+      setData({ rerolling: false });
+      alert('重摇失败');
     }
-  },
+  }
 
-  async compress() {
-    wx.showLoading({ title: '压缩中...' });
-    try {
-      // 预留压缩云函数调用，Phase2实现
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      wx.hideLoading();
-      wx.showToast({ title: '压缩功能开发中', icon: 'none' });
-      this.setData({ showCompressionHint: false });
-    } catch (e) {
-      wx.hideLoading();
-    }
-  },
+  async function compress() {
+    alert('压缩功能开发中');
+    setData({ showCompressionHint: false });
+  }
 
-  onShow() {
-    // 从创建角色页返回时刷新NPC列表
-    this.loadNPCList();
-    this.loadSaveInfo();
-  },
-});
+  // ===== Init =====
+  document.addEventListener('DOMContentLoaded', () => {
+    // 绑定事件
+    const bState = $('#btn-state');
+    if (bState) bState.onclick = toggleState;
+    const bNpc = $('#btn-npc');
+    if (bNpc) bNpc.onclick = toggleNPCList;
+    const bModel = $('#btn-model');
+    if (bModel) bModel.onclick = goToModel;
+    const bSend = $('#btn-send');
+    if (bSend) bSend.onclick = send;
+    const bReroll = $('#btn-reroll');
+    if (bReroll) bReroll.onclick = reroll;
+    const bComp = $('#btn-compress');
+    if (bComp) bComp.onclick = compress;
+    const bNewNpc = $('#btn-new-npc');
+    if (bNewNpc) bNewNpc.onclick = goCreateNPC;
+
+    const input = $('#input');
+    if (input) input.oninput = onInput;
+
+    // 启动
+    loadSaveInfo();
+    loadNPCList();
+    loadHistory();
+  });
+
+  // 暴露给测试
+  window.__dialogApp = { data, setData };
+})();
