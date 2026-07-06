@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1;">
+<title>设置 - AI 文游</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <button onclick="history.back()">←</button>
+    <h1>设置</h1>
+  </header>
+  <main>
+    <div class="about-list">
+      <div class="about-item"><b>严格模式</b><br><span class="muted">开启后 AI 必须严格遵循设定，不能即兴添加。</span>
+        <label class="row" style="margin-top:6px;"><input type="checkbox" id="strict-mode"> 开启</label>
+      </div>
+      <div class="about-item"><b>线索追踪</b><br><span class="muted">让 AI 跟踪玩家主动提出的目标。</span>
+        <label class="row" style="margin-top:6px;"><input type="checkbox" id="thread-mode"> 开启</label>
+      </div>
+      <div class="about-item"><b>清空缓存</b><br>
+        <button id="btn-clear" class="btn-secondary btn-sm" style="margin-top:6px;">清空</button>
+      </div>
+      <div class="about-item"><b>关于</b><br><span class="muted">AI 文游 · 凡人修仙传 MVP · 1.0</span></div>
+      <div class="about-item"><b>后端服务</b><br><code id="api-base" style="font-size:0.8rem;color:var(--accent);"></code></div>
+    </div>
+  </main>
+</div>
+<script>
+window.API_BASE = window.API_BASE || '';
+document.getElementById('api-base').textContent = window.API_BASE || '未设置';
+</script>
+<script src="/lib/api.js"></script>
+<script src="/pages/settings/settings.js"></script>
+</body>
+</html>
