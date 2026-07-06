@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 文游 - 世界选择</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>AI 文游</h1>
+    <button data-action="model">模型</button>
+    <button data-action="settings">设置</button>
+  </header>
+  <main>
+    <p class="hint">选择一个世界开始你的修仙之旅：</p>
+    <div class="world-list">
+      <div class="world-card" data-world="frxz">
+        <div class="world-name">凡人修仙·天南越国</div>
+        <div class="world-desc">天地不仁，以万物为刍狗。越国七派并立，弱肉强食。</div>
+        <div class="world-desc">初始区域：越国七派 · 初始境界：炼气</div>
+        <span class="world-tag">已开放</span>
+      </div>
+    </div>
+    <div style="margin-top:24px;">
+      <h3 style="margin-bottom:8px;color:var(--accent-2)">游戏说明</h3>
+      <div class="card" style="font-size:0.9rem;">
+        <p>· 选择"凡人修仙·天南越国"进入</p>
+        <p>· 首次需要先在模型管理配置 mimo API Key</p>
+        <p>· 创建新游戏可自定义主角（建议描述姓名/资质/出身）</p>
+        <p>· 对话支持指定 NPC："创建角色：剑修陆云，沉默寡言"</p>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="/lib/api.js"></script>
+<script>
+window.API_BASE = window.API_BASE || '';
+document.querySelectorAll('[data-action]').forEach(b => {
+  b.onclick = () => {
+    const a = b.dataset.action;
+    if (a === 'model') location.href = '/pages/modelManage/modelManage';
+    else if (a === 'settings') location.href = '/pages/settings/settings';
+  };
+});
+document.querySelectorAll('[data-world]').forEach(el => {
+  el.onclick = () => location.href = '/pages/saveList/saveList?game_id=' + el.dataset.world;
+});
+</script>
+</body>
+</html>
