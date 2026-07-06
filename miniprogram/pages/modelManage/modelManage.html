@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1;">
+<title>模型管理 - AI 文游</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <button onclick="history.back()">←</button>
+    <h1>模型管理</h1>
+  </header>
+  <main>
+    <div id="config-list"></div>
+    <button id="btn-add" class="btn-primary" style="width:100%;margin-top:12px;">+ 添加模型</button>
+  </main>
+</div>
+
+<div id="config-form" class="panel" style="display:none;">
+  <div class="panel-content">
+    <div class="panel-header"><h2 id="form-title">添加配置</h2><button class="panel-close" id="btn-cancel">×</button></div>
+    <div class="form-group"><label>名称</label><input name="name" data-field="name" placeholder="如：mimo 主力"></div>
+    <div class="form-group"><label>Base URL</label><input name="base_url" data-field="base_url" placeholder="https://api.xiaomimimo.com/v1"></div>
+    <div class="form-group"><label>API Key</label><input name="api_key" data-field="api_key" type="password" placeholder="sk-..."></div>
+    <div class="form-group"><label>模型</label><input name="model" data-field="model" placeholder="mimo-v2.5-pro"></div>
+    <div class="row">
+      <div class="form-group" style="flex:1;"><label>Temperature</label><input name="temperature" data-field="temperature" type="number" step="0.1" value="0.8"></div>
+      <div class="form-group" style="flex:1;"><label>Max Tokens</label><input name="max_tokens" data-field="max_tokens" type="number" value="2048"></div>
+    </div>
+    <div class="row">
+      <button id="btn-test-inline" class="btn-secondary">测试连通</button>
+      <button id="btn-default-toggle" class="btn-secondary" title="设为默认模型">非默认</button>
+    </div>
+    <div class="form-actions">
+      <button id="btn-save" class="btn-primary">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="/lib/api.js"></script>
+<script src="/pages/modelManage/modelManage.js"></script>
+</body>
+</html>
