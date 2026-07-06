@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>对话 - AI 文游</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <button onclick="history.back()">←</button>
+    <h1 id="save-title">对话</h1>
+    <button id="btn-state">状态</button>
+    <button id="btn-npc">NPC</button>
+    <button id="btn-model">模型</button>
+  </header>
+  <main id="messages">
+    <p class="empty">加载中...</p>
+  </main>
+  <footer>
+    <input id="input" class="input-bar" placeholder="输入对话，或「创建角色：描述」" />
+    <button id="btn-send" class="btn-primary">发送</button>
+    <button id="btn-reroll" class="btn-secondary">重摇</button>
+  </footer>
+</div>
+
+<div id="state-panel" style="display:none;">
+  <h3>状态</h3>
+  <pre id="state-text" style="white-space:pre-wrap;font-size:0.85rem;color:var(--fg-2);"></pre>
+</div>
+
+<div id="npc-panel" style="display:none;">
+  <h3>NPC 列表</h3>
+  <div id="npc-list"></div>
+  <button id="btn-new-npc" class="btn-primary" style="margin-top:12px;width:100%;">+ 创建 NPC</button>
+</div>
+
+<div id="compression-hint" style="display:none;">对话过长，建议压缩 →</div>
+
+<script src="/lib/api.js"></script>
+<script src="/pages/dialog/dialog.js"></script>
+</body>
+</html>
