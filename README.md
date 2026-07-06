@@ -1,149 +1,230 @@
-# 凡人修仙传 AI 文游 · 微信小程序
+# AI 文游 · 凡人修仙传（H5 + Node 版）
 
-> 一念成仙，一念成土。纯文字沙盒修仙AI游戏。
+原版是微信小程序（云开发），这是改造后的 **纯 HTML5 + Node 后端**版本。
 
-## 功能特性（MVP v0.1）
-
-✅ **核心已实现**：
-- 多存档系统，每个存档独立世界线
-- 角色创建（主角/重要NPC），支持自定义描述生成
-- 模型管理：支持多套OpenAI兼容配置（默认预填mimo中转站），AES加密存储API Key，一键切换
-- AI对话：流式响应（当前版本先收集完整返回，SSE实时流后续优化），四段解析（REPLY/MEMORY/STATE/DIRECTOR）
-- 记忆系统：重要NPC持久记忆，按存档+NPC完全隔离，NPC不会知道不属于自己的信息
-- 两级NPC：重要NPC（创建后持久化，有记忆）/ 次要NPC（LLM即兴，无记忆，可提升为重要）
-- 基础时间推进：识别"闭关一年"等时间跳跃输入，自动推进时间线
-- 同轮reroll：不满意回复可重摇，不重复提交状态变更
-- 修仙主题暗色UI
-
-🔨 **后续Phase实现**：
-- 上下文压缩（caveman规则，保事实丢散文）
-- 自由输入场景识别（不点NPC按钮也能自动路由）
-- 反八股风格系统
-- 完整时间推进/世界演化/NPC演化
-- 被动线索追踪
-- SSE实时流式打字机效果
-- 多世界支持
-- 严格角色一致性校验
-
-## 项目结构
-
-```
-xm/
-├── project.config.json              # 微信项目配置（需要替换appid和云环境ID）
-├── miniprogram/                     # 前端代码
-│   ├── app.js / app.json / app.wxss
-│   └── pages/
-│       ├── worldSelect/            # 世界选择页
-│       ├── saveList/               # 存档列表（新游戏/继续/删除）
-│       ├── charCreation/           # 角色创建页（主角/NPC）
-│       ├── dialog/                 # 核心对话页（聊天+状态面板+NPC列表）
-│       ├── modelManage/            # 模型配置管理
-│       └── settings/               # 设置页
-├── cloudfunctions/                  # 云函数
-│   ├── chat/                       # 主对话云函数
-│   ├── manageModel/                # 模型配置CRUD/测试
-│   ├── manageSave/                 # 存档CRUD/读取
-│   ├── createCharacter/            # 角色创建（LLM生成卡）
-│   └── shared/                     # 共享模块
-│       ├── encryption.js           # AES加解密API Key
-│       ├── llmGateway.js           # LLM调用网关（OpenAI兼容，支持缓存/流式/拉模型列表）
-│       ├── parser.js               # 四段解析+角色卡解析
-│       └── fileStorage.js          # 云存储文件读写+路径映射
-└── data/                           # 初始知识文件（部署时上传到云存储）
-    └── games/frxz/                 # 凡人修仙·天南越国世界
-        ├── manifest.md
-        ├── world.md                # 完整世界观
-        ├── world_compressed.md     # 压缩版世界观
-        └── regions/                # 区域文件
-            └── yueguo_qipai.md
-```
-
-## 部署步骤
-
-### 1. 环境准备
-- 下载安装 [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)（稳定版Windows 64位）
-- 下载安装 [Node.js LTS](https://nodejs.org/)（版本≥18）
-- 注册微信小程序账号（个人免费），获取AppID
-- 在微信开发者工具中创建小程序项目，开通云开发（免费额度），记录云环境ID
-
-### 2. 配置项目
-1. 打开 `project.config.json`，将 `appid` 字段替换为你的小程序AppID
-2. 打开 `miniprogram/app.js`，将 `cloudEnv` 替换为你的云开发环境ID
-3. 在云开发控制台设置环境变量 `ENCRYPTION_KEY`（32位字符串，用于加密API Key，生产环境必须设置，不要用默认值）
-
-### 3. 创建数据库集合
-在云开发控制台 -> 数据库中，创建以下集合：
-- `conversations`：对话历史
-- `model_configs`：模型配置
-- `saves`：存档元数据
-- `characters`：角色索引
-- `file_mappings`：云存储路径与fileID映射（自动创建）
-
-创建以下索引（提升性能）：
-- `conversations`: `{save_id: 1, timestamp: 1}`
-- `saves`: `{user_id: 1, game_id: 1}`
-- `characters`: `{save_id: 1, type: 1}`
-- `model_configs`: `{user_id: 1}`
-
-设置数据库权限：所有集合设置为"仅创建者可读写"（安全）
-
-### 4. 上传知识文件
-在云开发控制台 -> 云存储中，创建目录 `games/frxz/regions/`，将 `data/games/frxz/` 下的所有文件按目录结构上传：
-- `games/frxz/manifest.md`
-- `games/frxz/world.md`
-- `games/frxz/world_compressed.md`
-- `games/frxz/regions/yueguo_qipai.md`
-
-> 注意：首次上传后需要在云存储中复制每个文件的FileID，写入`file_mappings`集合，对应关系为：
-> ```
-> {cloud_path: "games/frxz/world.md", file_id: "你复制的fileID"}
-> ```
-> 或者直接在微信开发者工具中调用`writeCloudFile`自动写入映射（后续会优化自动读取）。
-
-### 5. 部署云函数
-在微信开发者工具中，右键每个云函数文件夹：
-1. 右键 `cloudfunctions/shared` 不需要单独部署（其他云函数会引用）
-2. 依次右键 `chat` / `manageModel` / `manageSave` / `createCharacter`，选择"上传并部署：云端安装依赖"
-
-### 6. 使用
-1. 编译运行小程序
-2. 进入模型管理，添加mimo配置（默认Base URL已填`https://api.xiaomimimo.com/v1`，模型`mimo-v2.5-pro`，填入你的API Key，测试连接成功后设为默认）
-3. 返回世界选择页，进入"凡人修仙·天南越国"
-4. 点击"新游戏"，输入角色描述（例如"我叫韩立，四灵根，黄枫谷外门弟子，相貌平平"），生成主角后开始游戏
-5. 可以输入"创建角色：剑修陆云，沉默寡言"来创建重要NPC，之后点击人物列表切换对话对象
-
-## 注意事项
-1. **内容安全**：当前版本默认跳过msgSecCheck，允许18+内容，仅适合个人自用，公开发布需要自行处理内容审核问题
-2. **成本**：默认BYOK（用户自带Key），开发者不需要承担API费用
-3. **免费额度**：微信云开发免费额度足够个人使用，注意不要超量
-4. **流式支持**：当前版本云函数先收集完整响应再返回，SSE实时打字机效果会在后续版本优化
-5. **知识文件**：目前只做了越国七派基础设定，后续可以扩展更多区域、物品、门派内容
-
-## 已实现核心机制说明
-
-### 信息隔离（解决NPC全知问题）
-- 代码级保证：与NPC陆云对话时，只会读取`npc_memory/lu_yun.md`，绝不会读取其他NPC或其他存档的记忆
-- 次要NPC无持久记忆，每次即兴生成，避免串戏
-- Prompt双保险：明确告诉LLM"不知道的事情就说不知道"
-
-### Reroll重摇机制（不刷乱世界线）
-- 同一轮对话（同一个turn_id）内可以重摇回复
-- 重摇只生成新的回复文本，不重复写记忆、不重复推进状态、不重复增加回合数
-- 重大事件（闭关/突破）采用"事实骨架固定，文本可重写"策略，避免刷平行世界
-- 一旦发送下一条消息，上一轮就锁定，不能再reroll
-
-### 时间推进基础框架（解决世界冻结感）
-- 识别输入中的"闭关X年/月/天""赶路X天""养伤X天"等模式
-- 自动计算流逝天数，将时间流逝提示注入上下文，让LLM自然推演变化
-- 完整的世界演化/NPC演化/线索过期机制在Phase3实现
-
-### 模型配置管理（参考RikkaHub/Chatbox）
-- 支持多套配置保存，一键切换
-- API Key AES加密存储，日志不打印明文
-- 支持自定义Base URL/模型ID/温度/最大token等所有常用参数
-- 支持测试连接，失败给出明确错误提示
-- 未来会支持自动拉取模型列表
+- 前端：5 个 HTML 页，`fetch` 调后端
+- 后端：单文件 `server.js`（合并 4 个云函数，JSON + Markdown 文件持久化）
+- 本地：`node server.js`，浏览器 <http://localhost:3001>
+- 云端：推荐 Cloudflare Pages（前端静态）+ 后端 fly.io/Deno Deploy
 
 ---
 
-**本项目处于MVP阶段，所有核心框架已搭通，可以直接游玩。后续功能按Phase2-4计划逐步迭代。**
+## 一、目录结构
+
+```
+.
+├── server.js                 ← 后端 Node 服务（合并 4 个云函数）
+├── miniprogram/
+│   ├── lib/api.js            ← fetch 封装，替代 wx.cloud
+│   ├── pages/
+│   │   ├── worldSelect/      ← 选择世界
+│   │   ├── saveList/         ← 存档列表
+│   │   ├── charCreation/     ← 创建角色
+│   │   ├── dialog/           ← 对话
+│   │   ├── modelManage/      ← 模型配置
+│   │   └── settings/         ← 设置
+│   ├── app.js                ← 入口（设置 API_BASE）
+│   └── wx-server-sdk/...     ← 原项目文件（小程序编译用，H5 不用）
+├── public/style.css          ← 全局样式
+├── data/
+│   ├── games/frxz/           ← 游戏知识文件（原样保留）
+│   │   ├── manifest.md
+│   │   ├── world.md
+│   │   ├── world_compressed.md
+│   │   └── regions/yueguo_qipai.md
+│   ├── db/                   ← 运行时生成（JSON 数据库）
+│   └── saves/                ← 存档文件（每个存档一个目录）
+└── README.md
+```
+
+---
+
+## 二、本地运行（5 分钟）
+
+### 前置
+- Node.js ≥ 18
+
+### 启动
+
+```bash
+# 安装依赖（无第三方依赖，纯 Node 内置模块）
+cd ai-wenyou
+node server.js
+```
+
+### 配置
+
+打开浏览器 <http://localhost:3001>，进入：
+
+- 首页 → 世界选择 → 凡人修仙·天南越国
+- 首次进入会看到空的存档列表，点 **"+ 新游戏"**
+- 但先点右上角 **"模型"** 配置 mimo API
+
+### 配置 mimo
+
+1. **模型管理** → **"+ 添加模型"**
+2. 填写：
+
+| 字段 | 值 |
+|---|---|
+| 名称 | 任意（如：mimo 主力） |
+| Base URL | `https://api.xiaomimimo.com/v1` |
+| API Key | 你的 mimo API Key（sk-...） |
+| 模型 | `mimo-v2.5-pro` |
+
+3. 保存 → 点行内 **"设默认"**
+
+### 开始游戏
+
+返回首页 → 凡人修仙 → **新游戏** → 填角色描述（如"我叫韩立，四灵根，黄枫谷外门弟子"）→ 生成角色 → 进入对话
+
+---
+
+## 三、关电脑也能玩的云端部署
+
+> 项目默认在 <http://localhost:3001> 启动。关电脑后 localhost 就挂了。下面两种方案都能让**其他人 / 手机**玩。
+
+### 方案 A：Cloudflare Pages（前端）+ fly.io（后端）
+
+> 适合想让所有朋友都能玩的场景
+
+#### 1. 部署前端到 Cloudflare Pages（免费）
+
+1. 注册 <https://dash.cloudflare.com>
+2. **Workers & Pages** → **创建应用程序** → **Pages** → **连接到 Git**
+3. 选 `BAI-32/ai-wenyou` 仓库
+4. 构建设置：
+   - Framework preset: **None**
+   - Build command: 留空
+   - Output directory: `miniprogram/pages`（但 server.js 有内置路由，直接 Pages Functions 即可）
+
+更简单方案：**用 Pages Functions**，把 UI 放根目录：
+
+5. 项目根创建 `functions/` 目录，Cloudflare 会用 Functions 替代 server.js 做 API（高级用户）
+
+#### 2. 部署后端到 fly.io（免费 3 台共享机）
+
+```bash
+# 安装 flyctl
+npm i -g flyctl
+flyctl auth login
+
+# 在项目根建 fly.toml
+cat > fly.toml << 'EOF'
+app = 'ai-wenyou'
+primary_region = 'hkg'
+
+[build]
+
+[env]
+  ENCRYPTION_KEY = '替换为你的32位密钥'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+
+[[vm]]
+  size = 'shared-cpu-1x'
+EOF
+
+flyctl launch --no-deploy
+flyctl deploy
+```
+
+部署后 `https://ai-wenyou.fly.dev` 就是 API 根 URL。
+
+#### 3. 修改前端 API_BASE
+
+在 `miniprogram/app.js`：
+
+```js
+apiBase: 'https://ai-wenyou.fly.dev'
+```
+
+推送代码 → Cloudflare 自动部署 → 完成。
+
+---
+
+### 方案 B：单 VPS 或国内云服务器 24 小时运行
+
+> 适合单人玩、想最简配置
+
+```bash
+# 在任意 linux 服务器（最轻 1 核 512MB）
+apt update; apt install -y nodejs npm
+git clone https://github.com/BAI-32/ai-wenyou.git
+cd ai-wenyou
+PORT=80 node server.js
+```
+
+或配 nginx 反向代理 + HTTPS。
+
+---
+
+## 四、加密 API Key
+
+后端 `data/db/model_configs.json` 里 API Key 以 AES-256-CBC 加密。
+
+**默认密钥**：`frxz-default-key-32-bytes-long!!`（不安全，生产环境必须换！）
+
+启动时指定环境变量：
+
+```bash
+ENCRYPTION_KEY=你的32位密钥字符串 node server.js
+```
+
+或在 Cloudflare Pages / fly.io 的环境变量里设置 `ENCRYPTION_KEY`。
+
+---
+
+## 五、存档数据
+
+| 文件 | 作用 |
+|---|---|
+| `data/db/saves.json` | 存档元数据列表 |
+| `data/db/model_configs.json` | 模型配置（含加密的 API Key） |
+| `data/db/conversations.json` | 对话历史 |
+| `data/db/characters.json` | 角色索引 |
+| `data/saves/<save_id>/` | 每个存档的 markdown 文件（player.md, state.md 等）|
+
+定期备份 `data/` 目录即可。
+
+---
+
+## 六、从微信小程序版迁移
+
+如果你要保留小程序版 + H5 版双版本：
+
+1. 另建一分支 `miniprogram-wx`
+2. 在 master 上做 H5 改造
+3. 在 wx 分支保留原云函数
+4. UI 逻辑共享（差异只在于调 API 时 base URL 不同）
+
+---
+
+## 七、已知问题与改进
+
+- [ ] 时间跳跃提示未实际持久化到 world_time（待 Phase 3 完善）
+- [ ] Reroll 暂未保存候选版本（每次覆盖）
+- [ ] 对话压缩尚未实现
+- [ ] 多语言系统尚未完整（仅中文）
+
+欢迎 PR 修 bug & 加功能。
+
+---
+
+## 八、米墨 mimo 接入参考
+
+Base URL: <https://api.xiaomimimo.com/v1>
+
+模型列表:
+- `mimo-v2.5-pro`
+- `mimo-v2.5`
+
+API Key 获取: <https://www.xiaomimimo.com> 注册后生成
+
+---
+
+## License
+
+MIT
