@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1;">
+<title>创建角色 - AI 文游</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <button onclick="history.back()">←</button>
+    <h1 id="page-title">创建角色</h1>
+  </header>
+  <main>
+    <div class="form-group">
+      <label>角色描述（姓名、资质、出身、外貌等）：</label>
+      <textarea id="description" rows="5" placeholder="例如：我叫韩立，四灵根，黄枫谷外门弟子，相貌平平"></textarea>
+    </div>
+    <button id="btn-generate" class="btn-primary" style="width:100%;">生成角色</button>
+
+    <div id="card-display" style="margin-top:20px;"></div>
+
+    <div id="edit-area" style="display:none;">
+      <textarea id="card-json" style="width:100%;height:200px;font-family:monospace;font-size:0.85rem;"></textarea>
+      <button id="btn-edit" class="btn-secondary">编辑 JSON</button>
+    </div>
+
+    <button id="btn-confirm" class="btn-primary" style="width:100%;margin-top:12px;display:none;">确认创建</button>
+  </main>
+</div>
+<script src="/lib/api.js"></script>
+<script src="/pages/charCreation/charCreation.js"></script>
+</body>
+</html>
