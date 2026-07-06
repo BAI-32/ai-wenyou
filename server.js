@@ -16,7 +16,11 @@ const DATA_DIR = path.join(__dirname, 'data');
 const DB_DIR = path.join(DATA_DIR, 'db');
 const SAVE_DIR = path.join(DATA_DIR, 'saves');
 const GAME_DIR = path.join(DATA_DIR, 'games');
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+};
 
 // === 加密（对齐原 shared/encryption.js）===
 const ALGO = 'aes-256-cbc';
@@ -34,7 +38,9 @@ function encrypt(txt) {
 }
 function decrypt(payload) {
   if (!payload) return '';
-  const [ivHex, enc] = payload.split(':');
+  const parts = payload.split(':');
+  if (parts.length !== 2) return '';
+  const [ivHex, enc] = parts;
   if (!ivHex || !enc) return '';
   try {
     const iv = Buffer.from(ivHex, 'hex');
@@ -100,7 +106,10 @@ async function callLLM({ base_url, api_key, model, params = {}, messages, stream
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api_key}` },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`LLM ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`LLM ${res.status}: ${errText}`);
+  }
   if (!stream) {
     const j = await res.json();
     return { full: j.choices?.[0]?.message?.content || '' };
@@ -114,7 +123,7 @@ async function callLLM({ base_url, api_key, model, params = {}, messages, stream
     if (done) break;
     buf += dec.decode(value, { stream: true });
     const lines = buf.split('\n');
-    buf = lines.pop();
+    buf = lines.pop() || '';
     for (const l of lines) {
       const line = l.trim();
       if (!line.startsWith('data:')) continue;
@@ -139,16 +148,12 @@ function parseSegments(text) {
     if (m) { cur = m[1].toUpperCase(); continue; }
     segs[cur] += l + '\n';
   }
-  const clean = (s, bullet) => {
-    const arr = s.split('\n).filter(x => x.trim());
-    if (bullet) return arr.map(x => x.replace(/^-\s*/, '').trim()).filter(Boolean);
-    return arr.join('\n').trim();
-  };
+  const splitBullet = (s) => s.split('\n').map(x => x.replace(/^-\s*/, '').trim()).filter(Boolean);
   return {
     reply: segs.REPLY.trim(),
-    memory: segs.MEMORY.split('\n').map(x => x.replace(/^-\s*/, '').trim()).filter(Boolean),
-    state: segs.STATE.split('\n').map(x => x.replace(/^-\s*/, '').trim()).filter(Boolean),
-    director: segs.DIRECTOR.split('\n').map(x => x.replace(/^-\s*/, '').trim()).filter(Boolean),
+    memory: splitBullet(segs.MEMORY),
+    state: splitBullet(segs.STATE),
+    director: splitBullet(segs.DIRECTOR),
   };
 }
 
@@ -291,7 +296,7 @@ async function handleChat(body) {
   ];
 
   const { full } = await callLLM({ base_url: cfg.base_url, api_key, model: cfg.model, params: cfg.params, messages: msgs, stream: true });
-  const { reply, memory, state, director } = parseSegments(full);
+  const { reply, memory, stateUpdates, director } = parseSegments(full);
   if (!reply) return { error: 'AI 回复为空，请重试' };
 
   if (!reroll) {
@@ -300,21 +305,22 @@ async function handleChat(body) {
       { id: genId('conv'), user_id: 'local', game_id, save_id, npc_id, npc_importance: npc_id ? 'important' : 'minor', role: 'user', content: user_input.trim(), timestamp: now, turn_id: effectiveTurn, candidate_version: 1, is_final: true },
       { id: genId('conv'), user_id: 'local', game_id, save_id, npc_id, npc_importance: npc_id ? 'important' : 'minor', role: 'assistant', content: reply, timestamp: now, turn_id: effectiveTurn, candidate_version: 1, is_final: true, reroll_count: 0 },
     ];
-    MEMORY.conversations.push(...newConvs);
+    MEMORY.conversations = (MEMORY.conversations || []).concat(newConvs);
     await saveDb('conversations');
 
     if (npc_id && memory.length) await appendSaveFile(save_id, `npc_memory/${npc_id}`, `\n## ${new Date().toLocaleString('zh-CN')}\n${memory.map(m => `- ${m}`).join('\n')}\n`);
-    if (state.length) await appendSaveFile(save_id, 'state', `\n## ${new Date().toLocaleString('zh-CN')} 状态更新\n${state.map(s => `- ${s}`).join('\n')}\n`);
+    if (stateUpdates.length) await appendSaveFile(save_id, 'state', `\n## ${new Date().toLocaleString('zh-CN')} 状态更新\n${stateUpdates.map(s => `- ${s}`).join('\n')}\n`);
     if (director.length) await appendSaveFile(save_id, 'threads', `\n${director.map(d => `- ${d}`).join('\n')}`);
 
     save.turn_counter = turn_counter + 1;
     save.last_played = now;
     if (npc_id) save.current_npc = npc_id;
+    MEMORY.saves = saves;
     await saveDb('saves');
 
     return {
       success: true, reply, turn_id: effectiveTurn,
-      state_updated: state.length > 0, memory_updated: memory.length > 0,
+      state_updated: stateUpdates.length > 0, memory_updated: memory.length > 0,
       objectives: director, turn_counter: save.turn_counter,
       shouldSuggestCompression: save.turn_counter > 0 && save.turn_counter % 8 === 0,
       rerollable: true, time_skipped: 0,
@@ -337,12 +343,13 @@ async function handleCreateCharacter(body) {
   const cfgs = await loadDb('model_configs');
   const cfg = cfgs.find(c => c.is_default) || cfgs[0];
   if (!cfg) return { error: '请先配置默认模型' };
+  if (!cfg.api_key_enc) return { error: '请先配置默认模型的 API Key' };
   const { full } = await callLLM({
     base_url: cfg.base_url, api_key: decrypt(cfg.api_key_enc), model: cfg.model,
     params: cfg.params, messages: [{ role: 'user', content: prompt }], stream: false,
   });
   const m = full.match(/\{[\s\S]*\}/);
-  if (!m) return { error: '生成失败：无效的模型响应' };
+  if (!m) return { error: '生成失败：无效的模型响应（响应非 JSON）' };
   let card;
   try { card = JSON.parse(m[0]); }
   catch (e) { return { error: '生成失败：JSON 解析错误' }; }
@@ -364,6 +371,7 @@ async function handleCreateCharacter(body) {
   if (save) {
     save.player_name = card.name || save.player_name;
     save.player_realm = card.realm || save.player_realm;
+    MEMORY.saves = saves;
     await saveDb('saves');
   }
   return { success: true, card };
@@ -391,14 +399,14 @@ async function handleManageSave(body) {
       saves.push(save);
       MEMORY.saves = saves;
       await saveDb('saves');
-      const init = {
+      const initFiles = {
         player: `# 主角\n\n待创建...\n`,
         state: `# 状态\n\n境界: 炼气\n位置: 越国七派\n物品:\n关系:\n声望: 无名小辈\n目标:\n`,
         world_state: `# 世界动态状态\n\n越国七派表面平静，暗潮涌动。\n`,
         summary: `# 对话摘要\n\n游戏刚开始。\n`,
         threads: `# 线索追踪\n\n尚无主动目标。\n`,
       };
-      for (const [f, c] of Object.entries(init)) await writeSaveFile(id, f, c);
+      for (const [f, c] of Object.entries(initFiles)) await writeSaveFile(id, f, c);
       return { success: true, save_id: id, game_id };
     }
     case 'list': {
@@ -424,10 +432,10 @@ async function handleManageSave(body) {
       MEMORY.saves = saves;
       await saveDb('saves');
       const convs = await loadDb('conversations');
-      MEMORY.conversations = convs.filter(c => c.save_id !== save_id);
+      MEMORY.conversations = (convs || []).filter(c => c.save_id !== save_id);
       await saveDb('conversations');
       const chars = await loadDb('characters');
-      MEMORY.characters = chars.filter(c => c.save_id !== save_id);
+      MEMORY.characters = (chars || []).filter(c => c.save_id !== save_id);
       await saveDb('characters');
       try { await fsp.rm(saveFile(save_id), { recursive: true, force: true }); } catch (e) {}
       return { success: true };
@@ -435,7 +443,7 @@ async function handleManageSave(body) {
     case 'updateMeta': {
       const s = saves.find(x => x.save_id === save_id);
       if (!s) return { error: '存档不存在' };
-      for (const k of ['player_name', 'player_realm', 'current_region', 'current_npc', 'current_date', 'turn_counter', 'last_played', 'mode']) {
+      for (const k of ['player_name', 'player_realm', 'current_region', 'current_npc', 'current_date', 'turn_counter', 'last_played', 'mode', 'current_model_config_id']) {
         if (body[k] !== undefined) s[k] = body[k];
       }
       s.updated_at = Date.now();
@@ -452,7 +460,8 @@ async function handleManageModel(body) {
   const { action, config } = body;
   const cfgs = await loadDb('model_configs');
   switch (action) {
-    case 'list': return { configs: cfgs.map(c => ({ _id: c._id, name: c.name, base_url: c.base_url, model: c.model, is_default: c.is_default, has_key: !!c.api_key_enc })) };
+    case 'list':
+      return { configs: cfgs.map(c => ({ _id: c._id, name: c.name, base_url: c.base_url, model: c.model, is_default: c.is_default, has_key: !!c.api_key_enc })) };
     case 'get': {
       if (!config?._id) return { config: null };
       const c = cfgs.find(x => x._id === config._id);
@@ -484,6 +493,7 @@ async function handleManageModel(body) {
       if (config.api_key) c.api_key_enc = encrypt(config.api_key);
       if (config.temperature !== undefined) c.params = { ...(c.params || {}), temperature: +config.temperature };
       if (config.max_tokens !== undefined) c.params = { ...(c.params || {}), max_tokens: +config.max_tokens };
+      if (config.is_default) { cfgs.forEach(x => x.is_default = x._id === c._id); }
       MEMORY.model_configs = cfgs;
       await saveDb('model_configs');
       return { success: true };
@@ -491,7 +501,9 @@ async function handleManageModel(body) {
     case 'delete': {
       const i = cfgs.findIndex(c => c._id === config._id);
       if (i < 0) return { error: '配置不存在' };
+      const wasDefault = cfgs[i].is_default;
       cfgs.splice(i, 1);
+      if (wasDefault && cfgs.length) cfgs[0].is_default = true;
       MEMORY.model_configs = cfgs;
       await saveDb('model_configs');
       return { success: true };
@@ -505,15 +517,15 @@ async function handleManageModel(body) {
       return { success: true };
     }
     case 'test': {
-      const { base_url, api_key, model } = config;
+      const { base_url, api_key, model } = config || {};
       if (!base_url || !api_key || !model) return { error: 'Base URL / API Key / Model 必填' };
       try {
         const { full } = await callLLM({ base_url, api_key, model, messages: [{ role: 'user', content: '你好，请回复 OK 确认连通。' }], stream: false, params: { max_tokens: 50 } });
-        return { success: true, response: full.slice(0, 200) };
+        return { success: true, response: (full || '(空)').slice(0, 200) };
       } catch (e) { return { error: e.message }; }
     }
     case 'listModels': {
-      const { base_url, api_key } = config;
+      const { base_url, api_key } = config || {};
       if (!base_url || !api_key) return { error: 'Base URL / API Key 必填' };
       try {
         const res = await fetch(`${base_url.replace(/\/$/, '')}/models`, { headers: { Authorization: `Bearer ${api_key}` } });
@@ -528,15 +540,14 @@ async function handleManageModel(body) {
 
 // === 路由：characters ===
 async function handleCharacters(body) {
-  const { action, save_id, type } = body;
+  const { action, save_id, type, npc_id } = body;
   const chars = await loadDb('characters');
   if (action === 'list') {
     return { data: chars.filter(c => c.save_id === save_id && (!type || c.type === type)) };
   }
   if (action === 'delete') {
-    const i = chars.findIndex(c => c.npc_id === body.npc_id);
+    const i = chars.findIndex(c => c.npc_id === npc_id);
     if (i < 0) return { error: 'NPC 不存在' };
-    const npc = chars[i];
     chars.splice(i, 1);
     MEMORY.characters = chars;
     await saveDb('characters');
@@ -548,31 +559,49 @@ async function handleCharacters(body) {
 // === 路由：history ===
 async function handleHistory(body) {
   const convs = await loadDb('conversations');
-  return { data: convs.filter(c => c.save_id === body.save_id && c.is_final).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).slice(-50) };
+  return { data: (convs || []).filter(c => c.save_id === body.save_id && c.is_final).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).slice(-50) };
 }
 
 // === 路由：file（知识文件）===
 async function handleFile(body) {
   const { game_id = 'frxz', filename } = body;
+  if (!filename) return { error: '缺少 filename' };
   const blocked = ['..', '~', '//'];
   if (blocked.some(b => filename.includes(b))) return { error: '非法文件路径' };
   const content = await readGameFile(game_id, filename);
   return { content };
 }
 
-// === 路由：index ===
-async function serveStatic(urlPath) {
-  let rel = urlPath === '/' ? '/index' : urlPath;
-  const page = rel.replace(/^\//, '');
+// === 静态 HTML 服务 ===
+const PAGE_DIR = path.join(__dirname, 'miniprogram', 'pages');
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const LIB_DIR = path.join(__dirname, 'miniprogram', 'lib');
+
+function guessType(p) {
+  if (p.endsWith('.css')) return 'text/css';
+  if (p.endsWith('.js')) return 'application/javascript';
+  if (p.endsWith('.svg')) return 'image/svg+xml';
+  if (p.endsWith('.png')) return 'image/png';
+  if (p.endsWith('.jpg') || p.endsWith('.jpeg')) return 'image/jpeg';
+  return 'text/html; charset=utf-8';
+}
+
+async function serveFile(relPath) {
+  const safePath = relPath.split('?')[0];
   const candidates = [
-    path.join(__dirname, 'miniprogram', 'pages', page, `${page}.html`),
-    path.join(__dirname, 'public', page + '.html'),
-    path.join(__dirname, 'public', 'index.html'),
+    path.join(PUBLIC_DIR, safePath),
+    path.join(LIB_DIR, safePath),
+    path.join(PAGE_DIR, safePath, `${path.basename(safePath)}.html`),
+    path.join(PAGE_DIR, safePath + '.html'),
+    path.join(PUBLIC_DIR, 'worldSelect.html'),
   ];
+  // 禁止路径穿越
   for (const c of candidates) {
+    const resolved = path.resolve(c);
+    if (!resolved.startsWith(__dirname)) continue;
     try {
-      const data = await fsp.readFile(c);
-      return { body: data, type: c.endsWith('.css') ? 'text/css' : c.endsWith('.js') ? 'application/javascript' : c.endsWith('.svg') ? 'image/svg+xml' : 'text/html; charset=utf-8' };
+      const data = await fsp.readFile(resolved);
+      return { body: data, type: guessType(resolved) };
     } catch (e) {}
   }
   return null;
@@ -601,11 +630,27 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 静态文件（UI）
-  const file = await serveStatic(pathname);
-  if (file) {
-    res.writeHead(200, { 'Content-Type': file.type, ...CORS });
-    return res.end(file.body);
+  // 前端路由（路径直接访问时重定向到 HTML）
+  if (req.method === 'GET' && !pathname.startsWith('/api/')) {
+    if (pathname === '/' || pathname === '/index.html') {
+      const wsf = path.join(PAGE_DIR, 'worldSelect', 'worldSelect.html');
+      try {
+        const data = await fsp.readFile(wsf);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...CORS });
+        return res.end(data);
+      } catch (e) {}
+    }
+    const file = await serveFile(pathname === '/' ? 'worldSelect.html' : pathname);
+    if (file) {
+      res.writeHead(200, { 'Content-Type': file.type, ...CORS });
+      return res.end(file.body);
+    }
+    // SPA fallback
+    try {
+      const data = await fsp.readFile(path.join(PUBLIC_DIR, 'worldSelect.html'));
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...CORS });
+      return res.end(data);
+    } catch (e) {}
   }
 
   sendJSON(res, 404, { error: 'Not found', path: pathname });
